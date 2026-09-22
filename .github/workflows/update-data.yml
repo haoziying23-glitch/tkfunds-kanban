@@ -1,0 +1,38 @@
+name: 更新基金净值数据
+
+on:
+  schedule:
+    # cron 走 UTC 时间；UTC = 北京时间 − 8 小时
+    - cron: '0 22 * * *'   # 北京时间 06:00
+    - cron: '0 10 * * *'   # 北京时间 18:00
+  workflow_dispatch:       # 允许在 Actions 页面手动点「Run workflow」立即跑一次
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write      # 必须，否则无法 push 回仓库
+
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 抓取净值并更新 data.json
+        run: python scripts/fetch_data.py
+
+      - name: 提交变更
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- data.json; then
+            echo "数据无变化，跳过提交"
+          else
+            git add data.json
+            git commit -m "chore(data): 更新净值 $(date -u +'%Y-%m-%d %H:%M') UTC"
+            git push
+          fi
